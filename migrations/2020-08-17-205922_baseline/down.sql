@@ -1,0 +1,1 @@
+drop table song_vote, song, competition;

@@ -1,0 +1,14 @@
+version: "3.3"
+
+services:
+  sotw-db:
+    image: postgres:10.4-alpine
+    ports:
+      - 5999:5432
+    volumes:
+      - ./:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_DB: "sotw"
+      POSTGRES_SCHEMA: "sotw"
+      POSTGRES_USER: "sotw"
+      POSTGRES_PASSWORD: "password"
