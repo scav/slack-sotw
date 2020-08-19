@@ -3,7 +3,7 @@ pub mod sotw {
         sotw.competition (id) {
             id -> Uuid,
             description -> Varchar,
-            user_id -> Uuid,
+            user_id -> Varchar,
             user_name -> Varchar,
             started -> Timestamptz,
             ended -> Nullable<Timestamptz>,
@@ -14,7 +14,7 @@ pub mod sotw {
     table! {
         sotw.song (id) {
             id -> Uuid,
-            user_id -> Uuid,
+            user_id -> Varchar,
             user_name -> Varchar,
             song_uri -> Varchar,
             competition_id -> Uuid,
@@ -24,7 +24,7 @@ pub mod sotw {
     table! {
         sotw.song_vote (id) {
             id -> Uuid,
-            user_id -> Uuid,
+            user_id -> Varchar,
             user_name -> Varchar,
             song_id -> Uuid,
         }

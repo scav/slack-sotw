@@ -3,7 +3,6 @@ use crate::sotw_db::errors::*;
 use crate::sotw_db::model::{Competition, CompetitionInsert};
 use diesel::prelude::*;
 use diesel::{insert_into, update, PgConnection, QueryDsl, RunQueryDsl};
-use uuid::Uuid;
 
 pub fn save(
     competition_insert: CompetitionInsert,
@@ -34,7 +33,7 @@ pub fn save(
 }
 
 pub fn close_competition(
-    _user_id: Uuid,
+    _user_id: String,
     connection: &PgConnection,
 ) -> Result<Competition, DataError> {
     use crate::schema::sotw::competition::dsl::*;
@@ -66,7 +65,10 @@ mod tests {
     use crate::sotw_db::errors::DataError;
     use crate::sotw_db::model::CompetitionInsert;
     use diesel::{Connection, PgConnection};
-    use uuid::Uuid;
+
+    fn random_user_id() -> String {
+        uuid::Uuid::new_v4().to_string()
+    }
 
     fn test_db_connection() -> PgConnection {
         dotenv::dotenv().ok();
@@ -76,9 +78,9 @@ mod tests {
         PgConnection::establish(&connection_string).unwrap()
     }
 
-    fn create_competition_insert(user_id: Uuid, is_active: bool) -> CompetitionInsert {
+    fn create_competition_insert(user_id: String, is_active: bool) -> CompetitionInsert {
         CompetitionInsert {
-            description: "a test theme for music".to_string(),
+            description: "asdf".to_string(),
             user_id,
             user_name: "Ola Nordmann".to_string(),
             started: chrono::Utc::now(),
@@ -96,8 +98,7 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, DataError, _>(|| {
-            let user_id = Uuid::new_v4();
-            let competition = create_competition_insert(user_id, true);
+            let competition = create_competition_insert(random_user_id(), true);
 
             let result = save(competition, connection);
 
@@ -115,9 +116,12 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, DataError, _>(|| {
-            let user_id_owner = Uuid::new_v4();
+            let user_id_owner = random_user_id();
 
-            let result_owner_ok = save(create_competition_insert(user_id_owner, true), connection);
+            let result_owner_ok = save(
+                create_competition_insert(user_id_owner.clone(), true),
+                connection,
+            );
             let result_owner_err = save(create_competition_insert(user_id_owner, true), connection);
 
             assert!(
@@ -140,10 +144,13 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, DataError, _>(|| {
-            let user_id_owner = Uuid::new_v4();
-            let user_id_other = Uuid::new_v4();
+            let user_id_owner = random_user_id();
+            let user_id_other = random_user_id();
 
-            let result_owner = save(create_competition_insert(user_id_owner, true), connection);
+            let result_owner = save(
+                create_competition_insert(user_id_owner.clone(), true),
+                connection,
+            );
 
             let result_close_other = close_competition(user_id_other, connection);
             let result_close_owner = close_competition(user_id_owner, connection);
@@ -173,9 +180,12 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, DataError, _>(|| {
-            save(create_competition_insert(Uuid::new_v4(), false), connection)?;
+            save(
+                create_competition_insert(random_user_id(), false),
+                connection,
+            )?;
 
-            let insert_competition = create_competition_insert(Uuid::new_v4(), true);
+            let insert_competition = create_competition_insert(random_user_id(), true);
             let inserted_competition = save(insert_competition, connection)?;
             let active_competition = find_active(connection)?;
 

@@ -14,7 +14,7 @@ use uuid::Uuid;
 pub struct Competition {
     pub id: Uuid,
     pub description: String,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub started: DateTime<Utc>,
     pub ended: Option<DateTime<Utc>>,
@@ -25,7 +25,7 @@ pub struct Competition {
 #[table_name = "competition_table"]
 pub struct CompetitionInsert {
     pub description: String,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub started: DateTime<Utc>,
     pub ended: Option<DateTime<Utc>>,
@@ -36,7 +36,7 @@ pub struct CompetitionInsert {
 #[derive(PartialEq, Debug, Serialize, Deserialize, Queryable)]
 pub struct Song {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub song_uri: String,
     pub competition_id: Uuid,
@@ -45,7 +45,7 @@ pub struct Song {
 #[derive(PartialEq, Debug, Deserialize, Insertable)]
 #[table_name = "song_table"]
 pub struct SongInsert {
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub song_uri: String,
 }
@@ -63,7 +63,7 @@ pub struct SongVote {
 #[derive(PartialEq, Debug, Deserialize, Insertable)]
 #[table_name = "song_vote_table"]
 pub struct SongVoteInsert {
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub song_id: Uuid,
 }

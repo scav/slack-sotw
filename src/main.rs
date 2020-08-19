@@ -5,7 +5,7 @@ extern crate log;
 
 use crate::slack::handler::handler;
 use actix_web::middleware::Logger;
-use actix_web::{web, App, Error, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpServer};
 use diesel::r2d2::ConnectionManager;
 use diesel::PgConnection;
 use dotenv::dotenv;
