@@ -5,9 +5,9 @@ use diesel::prelude::*;
 use diesel::{insert_into, update, PgConnection, QueryDsl, RunQueryDsl};
 
 pub fn save(
-    competition_insert: CompetitionInsert,
+    mut competition_insert: CompetitionInsert,
     connection: &PgConnection,
-) -> Result<Competition, DataError> {
+) -> Result<Competition, BotError> {
     let result: Option<Competition> = competition
         .filter(is_active.eq(true))
         .first::<Competition>(connection)
@@ -17,17 +17,22 @@ pub fn save(
         Some(other_competition) => {
             if other_competition.is_active {
                 warn!("Found active competition. Will not continue.");
-                return Err(DataError::ActiveCompetitionExists(other_competition.id));
+                return Err(BotError {
+                    data_error: DataError::ActiveCompetitionExists(other_competition.id),
+                    message: "Active competition already exists".to_string(),
+                });
             }
         }
-        _ => {}
+        None => {
+            competition_insert.is_active = true;
+        }
     }
 
     let saved_competition = insert_into(competition)
         .values(&competition_insert)
         .get_result::<Competition>(connection)?;
 
-    info!("Created new competition with id={:?}", saved_competition.id);
+    info!("Created new competition with id={:?}", saved_competition);
 
     Ok(saved_competition)
 }
@@ -35,13 +40,16 @@ pub fn save(
 pub fn close_competition(
     _user_id: String,
     connection: &PgConnection,
-) -> Result<Competition, DataError> {
+) -> Result<Competition, BotError> {
     use crate::schema::sotw::competition::dsl::*;
 
     let result = find_active(connection)?;
 
     if result.user_id != _user_id {
-        return Err(DataError::UserDoesNotOwnEntity(result.id));
+        return Err(BotError {
+            data_error: DataError::UserDoesNotOwnEntity(result.id),
+            message: "User does not own currently active competition".to_string(),
+        });
     }
 
     let closed_id = update(competition.filter(id.eq(result.id)))
@@ -51,7 +59,7 @@ pub fn close_competition(
     Ok(closed_id)
 }
 
-pub fn find_active(connection: &PgConnection) -> Result<Competition, DataError> {
+pub fn find_active(connection: &PgConnection) -> Result<Competition, BotError> {
     let result = competition
         .filter(is_active.eq(true))
         .first::<Competition>(connection)?;
@@ -62,7 +70,7 @@ pub fn find_active(connection: &PgConnection) -> Result<Competition, DataError> 
 #[cfg(test)]
 mod tests {
     use crate::sotw_db::database::{close_competition, find_active, save};
-    use crate::sotw_db::errors::DataError;
+    use crate::sotw_db::errors::{BotError, DataError};
     use crate::sotw_db::model::CompetitionInsert;
     use diesel::{Connection, PgConnection};
 
@@ -115,7 +123,7 @@ mod tests {
     fn test_save_exists() {
         let connection = &test_db_connection();
 
-        connection.test_transaction::<_, DataError, _>(|| {
+        connection.test_transaction::<_, BotError, _>(|| {
             let user_id_owner = random_user_id();
 
             let result_owner_ok = save(
@@ -130,8 +138,12 @@ mod tests {
             );
 
             assert_eq!(
-                result_owner_err.err().unwrap(),
-                DataError::ActiveCompetitionExists(result_owner_ok.unwrap().id),
+                result_owner_err.err().unwrap().data_error,
+                BotError {
+                    data_error: DataError::ActiveCompetitionExists(result_owner_ok.unwrap().id),
+                    message: "".to_string(),
+                }
+                .data_error,
                 "should not be able to save while active competition exists"
             );
 
@@ -143,7 +155,7 @@ mod tests {
     fn test_close() {
         let connection = &test_db_connection();
 
-        connection.test_transaction::<_, DataError, _>(|| {
+        connection.test_transaction::<_, BotError, _>(|| {
             let user_id_owner = random_user_id();
             let user_id_other = random_user_id();
 
@@ -166,8 +178,12 @@ mod tests {
             );
 
             assert_eq!(
-                result_close_other.err().unwrap(),
-                DataError::UserDoesNotOwnEntity(result_owner.unwrap().id),
+                result_close_other.err().unwrap().data_error,
+                BotError {
+                    data_error: DataError::UserDoesNotOwnEntity(result_owner.unwrap().id),
+                    message: "".to_string()
+                }
+                .data_error,
                 "should not be able to close competition not owned"
             );
 
@@ -179,7 +195,7 @@ mod tests {
     fn test_find_active() {
         let connection = &test_db_connection();
 
-        connection.test_transaction::<_, DataError, _>(|| {
+        connection.test_transaction::<_, BotError, _>(|| {
             save(
                 create_competition_insert(random_user_id(), false),
                 connection,
@@ -202,13 +218,17 @@ mod tests {
     fn test_not_found() {
         let connection = &test_db_connection();
 
-        connection.test_transaction::<_, DataError, _>(|| {
+        connection.test_transaction::<_, BotError, _>(|| {
             let result = find_active(connection);
 
             assert!(result.is_err(), "should fail when finding nothing");
             assert_eq!(
-                result.err().unwrap(),
-                DataError::DieselError(diesel::NotFound),
+                result.err().unwrap().data_error,
+                BotError {
+                    data_error: DataError::DieselError("diesel::NotFound".to_string()),
+                    message: "".to_string()
+                }
+                .data_error,
                 "should return diesels not found error wrapped in DataError"
             );
 

@@ -40,8 +40,8 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .data(db_pool.clone())
             .wrap(Logger::default())
+            .data(db_pool.clone())
             .route("/", web::post().to(handler))
     })
     .bind("127.0.0.1:9000")?
