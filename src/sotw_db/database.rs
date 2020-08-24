@@ -1,10 +1,13 @@
 use crate::schema::sotw::competition::dsl::*;
 use crate::sotw_db::errors::*;
-use crate::sotw_db::model::{Competition, CompetitionInsert};
+use crate::sotw_db::model::{
+    Competition, CompetitionInsert, Song, SongInsert, SongVote, SongVoteInsert,
+};
 use diesel::prelude::*;
 use diesel::{insert_into, update, PgConnection, QueryDsl, RunQueryDsl};
+use uuid::Uuid;
 
-pub fn save(
+pub fn save_competition(
     mut competition_insert: CompetitionInsert,
     connection: &PgConnection,
 ) -> Result<Competition, BotError> {
@@ -43,35 +46,96 @@ pub fn close_competition(
 ) -> Result<Competition, BotError> {
     use crate::schema::sotw::competition::dsl::*;
 
-    let result = find_active(connection)?;
+    let result = find_active_competition(connection)?;
 
-    if result.user_id != _user_id {
-        return Err(BotError {
-            data_error: DataError::UserDoesNotOwnEntity(result.id),
-            message: "User does not own currently active competition".to_string(),
-        });
+    if let Some(active_competition) = result {
+        if active_competition.user_id != _user_id {
+            return Err(BotError {
+                data_error: DataError::UserDoesNotOwnEntity(active_competition.id),
+                message: "User does not own currently active competition".to_string(),
+            });
+        }
+
+        let closed_id = update(competition.filter(id.eq(active_competition.id)))
+            .set((is_active.eq(false), ended.eq(Some(chrono::Utc::now()))))
+            .get_result(connection)?;
+
+        return Ok(closed_id);
     }
 
-    let closed_id = update(competition.filter(id.eq(result.id)))
-        .set((is_active.eq(false), ended.eq(Some(chrono::Utc::now()))))
-        .get_result(connection)?;
-
-    Ok(closed_id)
+    Err(BotError {
+        data_error: DataError::DieselError("Not found".to_string()),
+        message: "Unable to find an existing active competition".to_string(),
+    })
 }
 
-pub fn find_active(connection: &PgConnection) -> Result<Competition, BotError> {
+pub fn find_active_competition(connection: &PgConnection) -> Result<Option<Competition>, BotError> {
     let result = competition
         .filter(is_active.eq(true))
-        .first::<Competition>(connection)?;
+        .first::<Competition>(connection)
+        .optional()?;
 
     Ok(result)
 }
 
+pub fn save_song(
+    new_song_uri: String,
+    new_song_user_id: String,
+    new_song_user_name: String,
+    connection: &PgConnection,
+) -> Result<Song, BotError> {
+    use crate::schema::sotw::song::dsl::song;
+
+    if let Some(active_competition) = find_active_competition(connection)? {
+        let new_song_insert = SongInsert {
+            user_id: new_song_user_id,
+            user_name: new_song_user_name,
+            song_uri: new_song_uri,
+            competition_id: active_competition.id,
+        };
+
+        let saved_song = insert_into(song)
+            .values(&new_song_insert)
+            .get_result::<Song>(connection)?;
+
+        return Ok(saved_song);
+    }
+
+    Err(BotError {
+        data_error: DataError::NotImplementedError,
+        message: "".to_string(),
+    })
+}
+
+pub fn save_song_vote(
+    new_vote_song_id: Uuid,
+    new_vote_song_user_id: String,
+    new_vote_song_user_name: String,
+    connection: &PgConnection,
+) -> Result<SongVote, BotError> {
+    use crate::schema::sotw::song_vote::dsl::song_vote;
+
+    let new_song_vote = SongVoteInsert {
+        user_id: new_vote_song_user_id,
+        user_name: new_vote_song_user_name, //todo: consider removing name from records
+        song_id: new_vote_song_id,
+    };
+
+    let saved_song_vote = insert_into(song_vote)
+        .values(&new_song_vote)
+        .get_result::<SongVote>(connection)?;
+
+    Ok(saved_song_vote)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::sotw_db::database::{close_competition, find_active, save};
+    use crate::slack::model::SlackRequestCommand;
+    use crate::sotw_db::database::{
+        close_competition, find_active_competition, save_competition, save_song, save_song_vote,
+    };
     use crate::sotw_db::errors::{BotError, DataError};
-    use crate::sotw_db::model::CompetitionInsert;
+    use crate::sotw_db::model::{Competition, CompetitionInsert};
     use diesel::{Connection, PgConnection};
 
     fn random_user_id() -> String {
@@ -108,7 +172,7 @@ mod tests {
         connection.test_transaction::<_, DataError, _>(|| {
             let competition = create_competition_insert(random_user_id(), true);
 
-            let result = save(competition, connection);
+            let result = save_competition(competition, connection);
 
             assert!(
                 !result.is_err(),
@@ -126,11 +190,12 @@ mod tests {
         connection.test_transaction::<_, BotError, _>(|| {
             let user_id_owner = random_user_id();
 
-            let result_owner_ok = save(
+            let result_owner_ok = save_competition(
                 create_competition_insert(user_id_owner.clone(), true),
                 connection,
             );
-            let result_owner_err = save(create_competition_insert(user_id_owner, true), connection);
+            let result_owner_err =
+                save_competition(create_competition_insert(user_id_owner, true), connection);
 
             assert!(
                 &result_owner_ok.is_ok(),
@@ -159,7 +224,7 @@ mod tests {
             let user_id_owner = random_user_id();
             let user_id_other = random_user_id();
 
-            let result_owner = save(
+            let result_owner = save_competition(
                 create_competition_insert(user_id_owner.clone(), true),
                 connection,
             );
@@ -196,17 +261,13 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, BotError, _>(|| {
-            save(
-                create_competition_insert(random_user_id(), false),
-                connection,
-            )?;
-
             let insert_competition = create_competition_insert(random_user_id(), true);
-            let inserted_competition = save(insert_competition, connection)?;
-            let active_competition = find_active(connection)?;
+            let inserted_competition = save_competition(insert_competition, connection)?;
+            let active_competition = find_active_competition(connection)?;
 
             assert_eq!(
-                inserted_competition, active_competition,
+                inserted_competition,
+                active_competition.unwrap(),
                 "the correct competition must match the one active"
             );
 
@@ -219,17 +280,83 @@ mod tests {
         let connection = &test_db_connection();
 
         connection.test_transaction::<_, BotError, _>(|| {
-            let result = find_active(connection);
+            let result: Option<Competition> = find_active_competition(connection)?;
 
-            assert!(result.is_err(), "should fail when finding nothing");
+            assert_eq!(result, None, "should return None since there is no data");
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn test_save_song() {
+        let connection = &test_db_connection();
+
+        let cmd = SlackRequestCommand {
+            token: "".to_string(),
+            team_id: "".to_string(),
+            team_domain: "".to_string(),
+            channel_id: "".to_string(),
+            channel_name: "".to_string(),
+            user_id: "".to_string(),
+            user_name: "".to_string(),
+            command: None,
+            text: None,
+            api_app_id: "".to_string(),
+            response_url: "".to_string(),
+            trigger_id: "".to_string(),
+        };
+
+        connection.test_transaction::<_, BotError, _>(|| {
+            let active_competition = save_competition(
+                create_competition_insert(random_user_id(), false),
+                connection,
+            )?;
+
+            let inserted_song = save_song(
+                "".to_string(),
+                "cmd".to_string(),
+                "username_123".to_string(),
+                connection,
+            )?;
             assert_eq!(
-                result.err().unwrap().data_error,
-                BotError {
-                    data_error: DataError::DieselError("diesel::NotFound".to_string()),
-                    message: "".to_string()
-                }
-                .data_error,
-                "should return diesels not found error wrapped in DataError"
+                inserted_song.competition_id, active_competition.id,
+                "inserted song needs to match the id of the active competition"
+            );
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn test_vote_song() {
+        let connection = &test_db_connection();
+
+        connection.test_transaction::<_, BotError, _>(|| {
+            let active_competition = save_competition(
+                create_competition_insert(random_user_id(), false),
+                connection,
+            )?;
+            let inserted_song = save_song(
+                "http://example.org/song123".to_string(),
+                "example|123".to_string(),
+                "username_123".to_string(),
+                connection,
+            )?;
+            let voted_song = save_song_vote(
+                inserted_song.id,
+                "example|123".to_string(),
+                "username_123".to_string(),
+                connection,
+            )?;
+
+            assert_eq!(
+                inserted_song.competition_id, active_competition.id,
+                "song must match competition"
+            );
+            assert_eq!(
+                voted_song.song_id, inserted_song.id,
+                "voted song must match song"
             );
 
             Ok(())

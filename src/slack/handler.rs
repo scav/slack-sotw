@@ -1,10 +1,11 @@
 use crate::slack::model::{BotSubCommand, SlackRequestCommand};
-use crate::sotw_db::database::save;
+use crate::sotw_db::database::{save_competition, save_song, save_song_vote};
 use crate::sotw_db::errors::{BotError, DataError};
 use crate::sotw_db::model::CompetitionInsert;
 use crate::DbPool;
 use actix_rt::blocking::BlockingError;
 use actix_web::{web, Error, HttpResponse, ResponseError};
+use uuid::Uuid;
 
 /// Delegate to sub-handlers for the different bot commands
 pub async fn handler(
@@ -16,9 +17,25 @@ pub async fn handler(
     match &command.text {
         Some(sub_command) => match sub_command {
             BotSubCommand::Start(description) => handle_start(description, &command, db_pool).await,
-            BotSubCommand::Vote(_) => handle_vote().await,
-            BotSubCommand::List => handle_list().await,
-            BotSubCommand::Song(_) => handle_song().await,
+            BotSubCommand::Vote(song_id) => {
+                handle_vote(
+                    song_id.clone(),
+                    command.user_id.clone(),
+                    command.user_name.clone(),
+                    db_pool,
+                )
+                .await
+            }
+            BotSubCommand::List => handle_list(db_pool).await,
+            BotSubCommand::Song(song_uri) => {
+                handle_song(
+                    song_uri.clone(),
+                    command.user_id.clone(),
+                    command.user_name.clone(),
+                    db_pool,
+                )
+                .await
+            }
             BotSubCommand::Info => handle_info().await,
         },
         None => handle_unimplemented().await,
@@ -31,7 +48,7 @@ pub async fn handle_start(
     db_pool: web::Data<DbPool>,
 ) -> Result<HttpResponse, Error> {
     let competition = command_to_competition(description.clone(), command);
-    let competition = web::block(move || save(competition, &db_pool.get().unwrap()))
+    let competition = web::block(move || save_competition(competition, &db_pool.get().unwrap()))
         .await
         .map_err(|e| match e {
             BlockingError::Error(e) => e.error_response(),
@@ -41,15 +58,41 @@ pub async fn handle_start(
     Ok(HttpResponse::Ok().json(competition))
 }
 
-pub async fn handle_vote() -> Result<HttpResponse, Error> {
+pub async fn handle_vote(
+    song_id: Uuid,
+    user_id: String,
+    user_name: String,
+    db_pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+    let song =
+        web::block(move || save_song_vote(song_id, user_id, user_name, &db_pool.get().unwrap()))
+            .await
+            .map_err(|e| match e {
+                BlockingError::Error(e) => e.error_response(),
+                _ => HttpResponse::InternalServerError().finish(),
+            })?;
+
+    Ok(HttpResponse::Ok().json(song))
+}
+
+pub async fn handle_list(_db_pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
     handle_unimplemented().await
 }
 
-pub async fn handle_list() -> Result<HttpResponse, Error> {
-    handle_unimplemented().await
-}
-pub async fn handle_song() -> Result<HttpResponse, Error> {
-    handle_unimplemented().await
+pub async fn handle_song(
+    song_uri: String,
+    user_id: String,
+    user_name: String,
+    db_pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+    let song = web::block(move || save_song(song_uri, user_id, user_name, &db_pool.get().unwrap()))
+        .await
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.error_response(),
+            _ => HttpResponse::InternalServerError().finish(),
+        })?;
+
+    Ok(HttpResponse::Ok().json(song))
 }
 pub async fn handle_info() -> Result<HttpResponse, Error> {
     handle_unimplemented().await

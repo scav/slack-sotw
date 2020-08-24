@@ -1,12 +1,14 @@
 use core::fmt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::str::FromStr;
+use uuid::Uuid;
 
 #[derive(PartialEq, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum BotSubCommand {
     Start(String), // Starts a competition with String as theme
-    Vote(String),  // Vote for a song based on id
+    Vote(Uuid),    // Vote for a song based on id
     List,          // List all songs in current active competition
     Song(String),  // Add a song to the competition
     Info,          // Get the build info and stuff
@@ -69,7 +71,10 @@ impl<'de> Visitor<'de> for CmdVisitor {
                     }
                     ("vote", x) => {
                         if let Some(cmd_val) = x {
-                            Ok(Some(BotSubCommand::Vote(cmd_val.to_string())))
+                            if let Ok(song_id) = Uuid::from_str(cmd_val) {
+                                return Ok(Some(BotSubCommand::Vote(song_id)));
+                            }
+                            Err(E::custom("song_id is not a valid uuid"))
                         } else {
                             Err(E::custom("cmd missing argument"))
                         }
