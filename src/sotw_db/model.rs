@@ -48,6 +48,7 @@ pub struct SongInsert {
     pub user_id: String,
     pub user_name: String,
     pub song_uri: String,
+    pub competition_id: Uuid,
 }
 
 // A vote for any given song
@@ -55,7 +56,7 @@ pub struct SongInsert {
 #[derive(PartialEq, Debug, Serialize, Deserialize, Queryable)]
 pub struct SongVote {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub user_name: String,
     pub song_id: Uuid,
 }
