@@ -1,5 +1,7 @@
 use crate::slack::model::{BotSubCommand, SlackRequestCommand};
-use crate::sotw_db::database::{save_competition, save_song, save_song_vote};
+use crate::sotw_db::database::{
+    close_competition, list_songs_active_competition, save_competition, save_song, save_song_vote,
+};
 use crate::sotw_db::errors::{BotError, DataError};
 use crate::sotw_db::model::CompetitionInsert;
 use crate::DbPool;
@@ -17,6 +19,7 @@ pub async fn handler(
     match &command.text {
         Some(sub_command) => match sub_command {
             BotSubCommand::Start(description) => handle_start(description, &command, db_pool).await,
+            BotSubCommand::Stop => handle_stop(command.user_id.clone(), db_pool).await,
             BotSubCommand::Vote(song_id) => {
                 handle_vote(
                     song_id.clone(),
@@ -58,6 +61,20 @@ pub async fn handle_start(
     Ok(HttpResponse::Ok().json(competition))
 }
 
+pub async fn handle_stop(
+    user_id: String,
+    db_pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+    let close_result = web::block(move || close_competition(user_id, &db_pool.get().unwrap()))
+        .await
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.error_response(),
+            _ => HttpResponse::InternalServerError().finish(),
+        })?;
+
+    Ok(HttpResponse::Ok().json(close_result))
+}
+
 pub async fn handle_vote(
     song_id: Uuid,
     user_id: String,
@@ -75,8 +92,15 @@ pub async fn handle_vote(
     Ok(HttpResponse::Ok().json(song))
 }
 
-pub async fn handle_list(_db_pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
-    handle_unimplemented().await
+pub async fn handle_list(db_pool: web::Data<DbPool>) -> Result<HttpResponse, Error> {
+    let active_songs = web::block(move || list_songs_active_competition(&db_pool.get().unwrap()))
+        .await
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.error_response(),
+            _ => HttpResponse::InternalServerError().finish(),
+        })?;
+
+    Ok(HttpResponse::Ok().json(active_songs))
 }
 
 pub async fn handle_song(

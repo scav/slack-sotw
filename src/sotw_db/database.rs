@@ -1,4 +1,5 @@
 use crate::schema::sotw::competition::dsl::*;
+use crate::schema::sotw::song::columns::competition_id;
 use crate::sotw_db::errors::*;
 use crate::sotw_db::model::{
     Competition, CompetitionInsert, Song, SongInsert, SongVote, SongVoteInsert,
@@ -41,7 +42,7 @@ pub fn save_competition(
 }
 
 pub fn close_competition(
-    _user_id: String,
+    cmd_user_id: String,
     connection: &PgConnection,
 ) -> Result<Competition, BotError> {
     use crate::schema::sotw::competition::dsl::*;
@@ -49,7 +50,7 @@ pub fn close_competition(
     let result = find_active_competition(connection)?;
 
     if let Some(active_competition) = result {
-        if active_competition.user_id != _user_id {
+        if active_competition.user_id != cmd_user_id {
             return Err(BotError {
                 data_error: DataError::UserDoesNotOwnEntity(active_competition.id),
                 message: "User does not own currently active competition".to_string(),
@@ -76,6 +77,24 @@ pub fn find_active_competition(connection: &PgConnection) -> Result<Option<Compe
         .optional()?;
 
     Ok(result)
+}
+
+pub fn list_songs_active_competition(connection: &PgConnection) -> Result<Vec<Song>, BotError> {
+    use crate::schema::sotw::song::dsl::song;
+    let active_competition = find_active_competition(connection)?;
+
+    return match active_competition {
+        Some(active_competition) => {
+            let songs = song
+                .filter(competition_id.eq(active_competition.id))
+                .load::<Song>(connection)?;
+            Ok(songs)
+        }
+        None => Err(BotError {
+            data_error: DataError::NoActiveCompetition,
+            message: "Unable to find active competition when trying to list songs".to_string(),
+        }),
+    };
 }
 
 pub fn save_song(
@@ -132,11 +151,13 @@ pub fn save_song_vote(
 mod tests {
     use crate::slack::model::SlackRequestCommand;
     use crate::sotw_db::database::{
-        close_competition, find_active_competition, save_competition, save_song, save_song_vote,
+        close_competition, find_active_competition, list_songs_active_competition,
+        save_competition, save_song, save_song_vote,
     };
     use crate::sotw_db::errors::{BotError, DataError};
     use crate::sotw_db::model::{Competition, CompetitionInsert};
     use diesel::{Connection, PgConnection};
+    use std::ops::Add;
 
     fn random_user_id() -> String {
         uuid::Uuid::new_v4().to_string()
@@ -323,6 +344,33 @@ mod tests {
                 inserted_song.competition_id, active_competition.id,
                 "inserted song needs to match the id of the active competition"
             );
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn test_list_songs_active_competition() {
+        let connection = &test_db_connection();
+
+        connection.test_transaction::<_, BotError, _>(|| {
+            save_competition(
+                create_competition_insert(random_user_id(), true),
+                connection,
+            );
+
+            for i in 1..=10 {
+                save_song(
+                    "http://example.org/song123".to_string(),
+                    "example|123".to_string(),
+                    "username_123".to_string(),
+                    connection,
+                )?;
+            }
+
+            let active_songs = list_songs_active_competition(connection)?;
+
+            assert_eq!(active_songs.len(), 10, "all songs should be present");
 
             Ok(())
         });

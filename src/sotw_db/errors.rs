@@ -11,6 +11,7 @@ pub enum DataError {
     NotImplementedError,
     CmdParsingError(String),
     CommandPayloadError,
+    NoActiveCompetition,
     ActiveCompetitionExists(Uuid),
     UserDoesNotOwnEntity(Uuid),
     DieselError(String),
@@ -32,6 +33,7 @@ impl fmt::Display for DataError {
             DataError::CommandPayloadError => {
                 write!(f, "Error trying to parse payload from command")
             }
+            DataError::NoActiveCompetition => write!(f, "No active competition available"),
             DataError::ActiveCompetitionExists(ref id) => {
                 write!(f, "An active competition already exists id={:?}", id)
             }
@@ -67,6 +69,7 @@ impl ResponseError for BotError {
         match self.data_error {
             DataError::NotImplementedError => StatusCode::NOT_IMPLEMENTED,
             DataError::CommandPayloadError => StatusCode::BAD_REQUEST,
+            DataError::NoActiveCompetition => StatusCode::NOT_FOUND,
             DataError::DieselError(_) => StatusCode::METHOD_NOT_ALLOWED,
             DataError::ActiveCompetitionExists(_) => StatusCode::CONFLICT,
             _ => StatusCode::IM_A_TEAPOT,

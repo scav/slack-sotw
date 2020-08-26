@@ -8,6 +8,7 @@ use uuid::Uuid;
 #[serde(untagged)]
 pub enum BotSubCommand {
     Start(String), // Starts a competition with String as theme
+    Stop,          // Stops the active competition
     Vote(Uuid),    // Vote for a song based on id
     List,          // List all songs in current active competition
     Song(String),  // Add a song to the competition
@@ -68,6 +69,9 @@ impl<'de> Visitor<'de> for CmdVisitor {
                         } else {
                             Err(E::custom("cmd missing argument"))
                         }
+                    }
+                    ("stop", _) => {
+                        return Ok(Some(BotSubCommand::Stop));
                     }
                     ("vote", x) => {
                         if let Some(cmd_val) = x {
