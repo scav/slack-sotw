@@ -2,31 +2,41 @@
 
 Slack bot written in Rust for creating and voting on song competitions based on a current theme.
 
-Planned supported deploy options:
+##### Planned supported deploy options:
 - [ ] docker compose
 - [ ] Kubernetes
 - [ ] ...?
 
-Requirements
+##### Requirements
+* Rust
+* Diesel
 * PostgreSQL
 
-## Commands
+## Description
+Create and manage the process up until the point where a poll should be made.
+
+### Commands
 These are the planned commands
 
 For the judge
-* `/sotw start` start a new competition
-* `/sotw vote` create a vote for all added songs, 
-  * calling vote again will create a new vote with the top songs from first vote
-* `/sotw list` list all songs for this week
+* `/sotw start <description>` start a new competition with the given description
+* `/sotw stop` stop the current active competition
 
 For everyone
-* `/sotw song` this will add a song to this weeks contest
+* `/sotw list` list all songs in the currently active competition
+* `/sotw song <url>` this will add a song to this weeks contest
+* `/sotw vote <song_id> ` vote for a song currently in the active competition, 
   * calling song again will overwrite prior contribution
-* `/sotw info` get version and deployment info
-* `/sotw theme` get the active theme of the competition
+* `/sotw info` get information
 
 ## Development
 
+Planned features:
+- [ ] Create polls 
+- [ ] Create polls from existing polls (needs an API?)
+- [ ] Web view of current and past competitions
+
+### Setup locally
 Install diesel-cli for running migrations
 ```
 $ cargo install diesel_cli --no-default-features --features postgres
