@@ -11,6 +11,7 @@ use diesel::PgConnection;
 use dotenv::dotenv;
 use env_logger::Env;
 use r2d2::Pool;
+use reqwest::Client;
 
 mod schema;
 mod slack;
@@ -37,11 +38,15 @@ async fn main() -> std::io::Result<()> {
     env_logger::from_env(Env::default().default_filter_or(log_level)).init();
 
     let db_pool = create_db_pool();
+    let http_client = Client::builder()
+        .build()
+        .expect("Unable to create reqwest client for communicating with slack api!");
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .data(db_pool.clone())
+            .data(http_client.clone())
             .route("/", web::post().to(handler))
     })
     .bind("127.0.0.1:9000")?
