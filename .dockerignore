@@ -1,0 +1,9 @@
+.git
+.env
+*.md
+.gitignore
+.idea
+.github
+migrations
+docker
+target
