@@ -1,14 +1,12 @@
-name: Build
+name: Master
 
 on:
   push:
+    paths-ignore:
+      - '**.md'
+      - 'docker/**'
     branches:
       - master
-      - feature/**
-  pull_request:
-    branches:
-      - feature/**
-      - bugfux/**
 
 env:
   CARGO_TERM_COLOR: always
@@ -57,6 +55,7 @@ jobs:
       run: cargo test
 
   package:
+    if:
     needs: build
     runs-on: ubuntu-latest
     steps:

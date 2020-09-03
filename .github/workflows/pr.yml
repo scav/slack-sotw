@@ -1,0 +1,63 @@
+name: Pull Request
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'docker/**'
+    branches:
+      - feature/**
+      - bugfux/**
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docker/**'
+    branches:
+      - feature/**
+      - bugfux/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    services:
+      postgres:
+
+        image: postgres
+        env:
+          POSTGRES_DB: "sotw"
+          POSTGRES_SCHEMA: "sotw"
+          POSTGRES_USER: "sotw"
+          POSTGRES_PASSWORD: "password"
+          PGPASSWORD: "password"
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    runs-on: ubuntu-latest
+    container: scav/rdiesel:2
+    env:
+      POSTGRES_DB: "sotw"
+      POSTGRES_USER: "sotw"
+      PGPASSWORD: "password"
+      DATABASE_URL: postgresql://sotw:password@postgres:5432/sotw?application_name=sotw
+      LOG_LEVEL: trace
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Prepare database
+        run: psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -f docker/init.sql
+      - name: Run database migration
+        run: diesel migration run
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run tests
+        run: cargo test

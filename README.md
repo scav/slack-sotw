@@ -2,7 +2,7 @@
 
 Slack bot written in Rust for creating and voting on song competitions based on a current theme.
 
-![slack-sotw](https://github.com/scav/slack-sotw/workflows/Rust/badge.svg)
+![slack-sotw](https://github.com/scav/slack-sotw/workflows/Master/badge.svg)
 
 ##### Planned supported deploy options:
 - [ ] docker compose
