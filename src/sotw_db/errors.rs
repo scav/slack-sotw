@@ -10,7 +10,6 @@ use uuid::Uuid;
 pub enum DataError {
     NotImplementedError,
     CmdParsingError(String),
-    CommandPayloadError,
     NoActiveCompetition,
     ActiveCompetitionExists(Uuid),
     UserDoesNotOwnEntity(Uuid),
@@ -29,9 +28,6 @@ impl fmt::Display for DataError {
             DataError::NotImplementedError => write!(f, "This thing is not yet implemented"),
             DataError::CmdParsingError(ref msg) => {
                 write!(f, "Error trying to parse cmd err={:?}", msg)
-            }
-            DataError::CommandPayloadError => {
-                write!(f, "Error trying to parse payload from command")
             }
             DataError::NoActiveCompetition => write!(f, "No active competition available"),
             DataError::ActiveCompetitionExists(ref id) => {
@@ -68,7 +64,6 @@ impl ResponseError for BotError {
     fn status_code(&self) -> StatusCode {
         match self.data_error {
             DataError::NotImplementedError => StatusCode::NOT_IMPLEMENTED,
-            DataError::CommandPayloadError => StatusCode::BAD_REQUEST,
             DataError::NoActiveCompetition => StatusCode::NOT_FOUND,
             DataError::DieselError(_) => StatusCode::METHOD_NOT_ALLOWED,
             DataError::ActiveCompetitionExists(_) => StatusCode::CONFLICT,
