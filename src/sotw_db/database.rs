@@ -100,7 +100,6 @@ pub fn list_songs_active_competition(connection: &PgConnection) -> Result<Vec<So
 pub fn save_song(
     new_song_uri: String,
     new_song_user_id: String,
-    new_song_user_name: String,
     connection: &PgConnection,
 ) -> Result<Song, BotError> {
     use crate::schema::sotw::song::dsl::song;
@@ -108,7 +107,6 @@ pub fn save_song(
     if let Some(active_competition) = find_active_competition(connection)? {
         let new_song_insert = SongInsert {
             user_id: new_song_user_id,
-            user_name: new_song_user_name,
             song_uri: new_song_uri,
             competition_id: active_competition.id,
         };
@@ -129,14 +127,12 @@ pub fn save_song(
 pub fn save_song_vote(
     new_vote_song_id: Uuid,
     new_vote_song_user_id: String,
-    new_vote_song_user_name: String,
     connection: &PgConnection,
 ) -> Result<SongVote, BotError> {
     use crate::schema::sotw::song_vote::dsl::song_vote;
 
     let new_song_vote = SongVoteInsert {
         user_id: new_vote_song_user_id,
-        user_name: new_vote_song_user_name, //todo: consider removing name from records
         song_id: new_vote_song_id,
     };
 
@@ -175,7 +171,6 @@ mod tests {
         CompetitionInsert {
             description: "asdf".to_string(),
             user_id,
-            user_name: "Ola Nordmann".to_string(),
             started: chrono::Utc::now(),
             ended: if !is_active {
                 Some(chrono::Utc::now())
@@ -320,7 +315,6 @@ mod tests {
             channel_id: "".to_string(),
             channel_name: "".to_string(),
             user_id: "".to_string(),
-            user_name: "".to_string(),
             command: None,
             text: None,
             api_app_id: "".to_string(),
@@ -334,12 +328,7 @@ mod tests {
                 connection,
             )?;
 
-            let inserted_song = save_song(
-                "".to_string(),
-                "cmd".to_string(),
-                "username_123".to_string(),
-                connection,
-            )?;
+            let inserted_song = save_song("".to_string(), "cmd".to_string(), connection)?;
             assert_eq!(
                 inserted_song.competition_id, active_competition.id,
                 "inserted song needs to match the id of the active competition"
@@ -363,7 +352,6 @@ mod tests {
                 save_song(
                     "http://example.org/song123".to_string(),
                     "example|123".to_string(),
-                    "username_123".to_string(),
                     connection,
                 )?;
             }
@@ -388,15 +376,10 @@ mod tests {
             let inserted_song = save_song(
                 "http://example.org/song123".to_string(),
                 "example|123".to_string(),
-                "username_123".to_string(),
                 connection,
             )?;
-            let voted_song = save_song_vote(
-                inserted_song.id,
-                "example|123".to_string(),
-                "username_123".to_string(),
-                connection,
-            )?;
+            let voted_song =
+                save_song_vote(inserted_song.id, "example|123".to_string(), connection)?;
 
             assert_eq!(
                 inserted_song.competition_id, active_competition.id,

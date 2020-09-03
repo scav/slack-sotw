@@ -15,7 +15,6 @@ pub struct Competition {
     pub id: Uuid,
     pub description: String,
     pub user_id: String,
-    pub user_name: String,
     pub started: DateTime<Utc>,
     pub ended: Option<DateTime<Utc>>,
     pub is_active: bool,
@@ -26,7 +25,6 @@ pub struct Competition {
 pub struct CompetitionInsert {
     pub description: String,
     pub user_id: String,
-    pub user_name: String,
     pub started: DateTime<Utc>,
     pub ended: Option<DateTime<Utc>>,
     pub is_active: bool,
@@ -37,7 +35,6 @@ pub struct CompetitionInsert {
 pub struct Song {
     pub id: Uuid,
     pub user_id: String,
-    pub user_name: String,
     pub song_uri: String,
     pub competition_id: Uuid,
 }
@@ -46,7 +43,6 @@ pub struct Song {
 #[table_name = "song_table"]
 pub struct SongInsert {
     pub user_id: String,
-    pub user_name: String,
     pub song_uri: String,
     pub competition_id: Uuid,
 }
@@ -57,7 +53,6 @@ pub struct SongInsert {
 pub struct SongVote {
     pub id: Uuid,
     pub user_id: String,
-    pub user_name: String,
     pub song_id: Uuid,
 }
 
@@ -65,6 +60,5 @@ pub struct SongVote {
 #[table_name = "song_vote_table"]
 pub struct SongVoteInsert {
     pub user_id: String,
-    pub user_name: String,
     pub song_id: Uuid,
 }

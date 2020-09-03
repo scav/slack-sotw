@@ -25,7 +25,6 @@ pub struct SlackRequestCommand {
     pub channel_id: String,
     pub channel_name: String,
     pub user_id: String,
-    pub user_name: String,
     pub command: Option<String>,
     #[serde(deserialize_with = "str_as_cmd")]
     pub text: Option<BotSubCommand>,

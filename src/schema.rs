@@ -4,7 +4,6 @@ pub mod sotw {
             id -> Uuid,
             description -> Varchar,
             user_id -> Varchar,
-            user_name -> Varchar,
             started -> Timestamptz,
             ended -> Nullable<Timestamptz>,
             is_active -> Bool,
@@ -15,7 +14,6 @@ pub mod sotw {
         sotw.song (id) {
             id -> Uuid,
             user_id -> Varchar,
-            user_name -> Varchar,
             song_uri -> Varchar,
             competition_id -> Uuid,
         }
@@ -25,7 +23,6 @@ pub mod sotw {
         sotw.song_vote (id) {
             id -> Uuid,
             user_id -> Varchar,
-            user_name -> Varchar,
             song_id -> Uuid,
         }
     }

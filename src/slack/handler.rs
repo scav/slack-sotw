@@ -28,7 +28,6 @@ pub async fn handler(
                 handle_vote(
                     song_id.clone(),
                     command.user_id.clone(),
-                    command.user_name.clone(),
                     command.response_url.clone(),
                     db_pool,
                     http_client,
@@ -61,7 +60,6 @@ pub async fn handle_start(
     let competition = CompetitionInsert {
         description,
         user_id: command.user_id.clone(),
-        user_name: command.user_name.clone(),
         started: chrono::Utc::now(),
         ended: None,
         is_active: false,
@@ -120,18 +118,16 @@ pub async fn handle_stop(
 pub async fn handle_vote(
     song_id: Uuid,
     user_id: String,
-    user_name: String,
     response_url: String,
     db_pool: web::Data<DbPool>,
     http_client: web::Data<Client>,
 ) -> Result<HttpResponse, Error> {
-    let song_vote =
-        web::block(move || save_song_vote(song_id, user_id, user_name, &db_pool.get().unwrap()))
-            .await
-            .map_err(|e| match e {
-                BlockingError::Error(e) => e.error_response(),
-                _ => HttpResponse::InternalServerError().finish(),
-            })?;
+    let song_vote = web::block(move || save_song_vote(song_id, user_id, &db_pool.get().unwrap()))
+        .await
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.error_response(),
+            _ => HttpResponse::InternalServerError().finish(),
+        })?;
 
     let response_text = format!(
         "<@{}> *voted* for song_id: {}",
@@ -168,19 +164,12 @@ pub async fn handle_song(
     http_client: web::Data<Client>,
 ) -> Result<HttpResponse, Error> {
     //let response_url = command.response_url.clone();
-    let song = web::block(move || {
-        save_song(
-            song_uri,
-            user_id,
-            "deprecated".to_string(),
-            &db_pool.get().unwrap(),
-        )
-    })
-    .await
-    .map_err(|e| match e {
-        BlockingError::Error(e) => e.error_response(),
-        _ => HttpResponse::InternalServerError().finish(),
-    })?;
+    let song = web::block(move || save_song(song_uri, user_id, &db_pool.get().unwrap()))
+        .await
+        .map_err(|e| match e {
+            BlockingError::Error(e) => e.error_response(),
+            _ => HttpResponse::InternalServerError().finish(),
+        })?;
 
     let response_text = format!("<@{}> *added* song: {}", song.user_id, song.song_uri);
 
