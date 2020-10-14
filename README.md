@@ -18,13 +18,13 @@ Slack bot written in Rust for creating and voting on song competitions based on 
 Create and manage the process up until the point where a poll should be made.
 
 ### Commands
-These are the planned commands
+Available commands
 
-For the judge
+For the weekly admin
 * `/sotw start <description>` start a new competition with the given description
 * `/sotw stop` stop the current active competition
 
-For everyone
+For everyone else (including weekly admin)
 * `/sotw list` list all songs in the currently active competition
 * `/sotw song <url>` this will add a song to this weeks contest
 * `/sotw vote <song_id> ` vote for a song currently in the active competition, 
@@ -33,7 +33,7 @@ For everyone
 
 ## Development
 
-Planned features:
+Planned or possible features:
 - [ ] Create polls 
 - [ ] Create polls from existing polls (needs an API?)
 - [ ] Web view of current and past competitions
