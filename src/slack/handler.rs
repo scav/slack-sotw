@@ -1,22 +1,37 @@
 use crate::slack::model::{BotSubCommand, SlackRequestCommand};
 use crate::slack::response::in_channel_response;
+use crate::slack::verify_request::{validate_request_headers, validate_slack_signature};
 use crate::sotw_db::database::{
     close_competition, list_songs_active_competition, save_competition, save_song, save_song_vote,
 };
 use crate::sotw_db::model::CompetitionInsert;
-use crate::DbPool;
+use crate::{DbPool, SlackSecret};
 use actix_rt::blocking::BlockingError;
-use actix_web::{web, Error, HttpResponse, ResponseError};
+use actix_web::{web, Error, HttpRequest, HttpResponse, ResponseError};
 use reqwest::Client;
 use uuid::Uuid;
 
 /// Delegate to sub-handlers for the different bot commands
+/// Instead of calling web::Form<SlackRequestCommand> get web::Bytes
+/// directly in order to use the body in Slack signature verification.
 pub async fn handler(
-    new_command: web::Form<SlackRequestCommand>,
+    request: HttpRequest,
+    raw_body: web::Bytes,
     db_pool: web::Data<DbPool>,
+    slack_secret: web::Data<SlackSecret>,
     http_client: web::Data<Client>,
 ) -> Result<HttpResponse, Error> {
-    let command = new_command.into_inner();
+    //Verify request
+    let slack_validated_headers = validate_request_headers(request.headers())?;
+    let body = String::from_utf8(raw_body.to_vec()).unwrap();
+    validate_slack_signature(
+        slack_secret.as_ref(),
+        slack_validated_headers.request_signature,
+        body,
+        slack_validated_headers.request_timestamp,
+    )?;
+
+    let command: SlackRequestCommand = serde_urlencoded::from_bytes(&raw_body)?;
 
     match &command.text {
         Some(sub_command) => match sub_command {
@@ -163,7 +178,6 @@ pub async fn handle_song(
     db_pool: web::Data<DbPool>,
     http_client: web::Data<Client>,
 ) -> Result<HttpResponse, Error> {
-    //let response_url = command.response_url.clone();
     let song = web::block(move || save_song(song_uri, user_id, &db_pool.get().unwrap()))
         .await
         .map_err(|e| match e {
@@ -178,9 +192,10 @@ pub async fn handle_song(
     Ok(HttpResponse::Ok().json(song))
 }
 pub async fn handle_info() -> Result<HttpResponse, Error> {
-    handle_unimplemented().await
+    Ok(HttpResponse::Ok().body("Bot information - TODO"))
 }
 
 pub async fn handle_unimplemented() -> Result<HttpResponse, Error> {
-    Ok(HttpResponse::Ok().body("Bot information - TODO"))
+    warn!("Received unimplemented command");
+    Ok(HttpResponse::Ok().body("Unknown or unimplemented command"))
 }

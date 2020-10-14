@@ -145,7 +145,6 @@ pub fn save_song_vote(
 
 #[cfg(test)]
 mod tests {
-    use crate::slack::model::SlackRequestCommand;
     use crate::sotw_db::database::{
         close_competition, find_active_competition, list_songs_active_competition,
         save_competition, save_song, save_song_vote,
@@ -153,7 +152,6 @@ mod tests {
     use crate::sotw_db::errors::{BotError, DataError};
     use crate::sotw_db::model::{Competition, CompetitionInsert};
     use diesel::{Connection, PgConnection};
-    use std::ops::Add;
 
     fn random_user_id() -> String {
         uuid::Uuid::new_v4().to_string()
@@ -308,20 +306,6 @@ mod tests {
     fn test_save_song() {
         let connection = &test_db_connection();
 
-        let cmd = SlackRequestCommand {
-            token: "".to_string(),
-            team_id: "".to_string(),
-            team_domain: "".to_string(),
-            channel_id: "".to_string(),
-            channel_name: "".to_string(),
-            user_id: "".to_string(),
-            command: None,
-            text: None,
-            api_app_id: "".to_string(),
-            response_url: "".to_string(),
-            trigger_id: "".to_string(),
-        };
-
         connection.test_transaction::<_, BotError, _>(|| {
             let active_competition = save_competition(
                 create_competition_insert(random_user_id(), false),
@@ -346,9 +330,9 @@ mod tests {
             save_competition(
                 create_competition_insert(random_user_id(), true),
                 connection,
-            );
+            )?;
 
-            for i in 1..=10 {
+            for _ in 1..=10 {
                 save_song(
                     "http://example.org/song123".to_string(),
                     "example|123".to_string(),
