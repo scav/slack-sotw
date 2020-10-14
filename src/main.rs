@@ -18,6 +18,7 @@ mod slack;
 mod sotw_db;
 
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type SlackSecret = String;
 
 /// Create a DB connection pool using simple defaults
 pub fn create_db_pool() -> Pool<ConnectionManager<PgConnection>> {
@@ -37,7 +38,11 @@ async fn main() -> std::io::Result<()> {
     let log_level = std::env::var("LOG_LEVEL").unwrap_or("info".to_string());
     env_logger::from_env(Env::default().default_filter_or(log_level)).init();
 
+    let slack_secret: SlackSecret =
+        std::env::var("SLACK_SIGNING_SECRET").expect("Missing slack secret!");
+
     let db_pool = create_db_pool();
+
     let http_client = Client::builder()
         .build()
         .expect("Unable to create reqwest client for communicating with slack api!");
@@ -47,6 +52,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .data(db_pool.clone())
             .data(http_client.clone())
+            .data(slack_secret.clone())
             .route("/", web::post().to(handler))
     })
     .bind("127.0.0.1:9000")?
