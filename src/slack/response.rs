@@ -23,7 +23,7 @@ pub async fn response(
         .send()
         .await;
 
-    if let Err(_) = result {
+    if result.is_err() {
         warn!("Unable to send response to slack!")
     }
 

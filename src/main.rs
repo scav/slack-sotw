@@ -35,7 +35,7 @@ pub fn create_db_pool() -> Pool<ConnectionManager<PgConnection>> {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    let log_level = std::env::var("LOG_LEVEL").unwrap_or("info".to_string());
+    let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
     env_logger::from_env(Env::default().default_filter_or(log_level)).init();
 
     let slack_secret: SlackSecret =

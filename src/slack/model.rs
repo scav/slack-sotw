@@ -60,41 +60,37 @@ impl<'de> Visitor<'de> for CmdVisitor {
         E: de::Error,
     {
         match cmd_payload(value) {
-            Some(cmd) => {
-                return match cmd {
-                    ("start", x) => {
-                        if let Some(cmd_val) = x {
-                            Ok(Some(BotSubCommand::Start(cmd_val.to_string())))
-                        } else {
-                            Err(E::custom("cmd missing argument"))
-                        }
+            Some(cmd) => match cmd {
+                ("start", x) => {
+                    if let Some(cmd_val) = x {
+                        Ok(Some(BotSubCommand::Start(cmd_val.to_string())))
+                    } else {
+                        Err(E::custom("cmd missing argument"))
                     }
-                    ("stop", _) => {
-                        return Ok(Some(BotSubCommand::Stop));
-                    }
-                    ("vote", x) => {
-                        if let Some(cmd_val) = x {
-                            if let Ok(song_id) = Uuid::from_str(cmd_val) {
-                                return Ok(Some(BotSubCommand::Vote(song_id)));
-                            }
-                            Err(E::custom("song_id is not a valid uuid"))
-                        } else {
-                            Err(E::custom("cmd missing argument"))
-                        }
-                    }
-                    ("list", _) => Ok(Some(BotSubCommand::List)),
-
-                    ("song", x) => {
-                        if let Some(cmd_val) = x {
-                            Ok(Some(BotSubCommand::Song(cmd_val.to_string())))
-                        } else {
-                            Err(E::custom("cmd missing argument"))
-                        }
-                    }
-                    ("info", _) => Ok(Some(BotSubCommand::Info)),
-                    (&_, _) => Err(E::custom("unable to match input with cmd")),
                 }
-            }
+                ("stop", _) => Ok(Some(BotSubCommand::Stop)),
+                ("vote", x) => {
+                    if let Some(cmd_val) = x {
+                        if let Ok(song_id) = Uuid::from_str(cmd_val) {
+                            return Ok(Some(BotSubCommand::Vote(song_id)));
+                        }
+                        Err(E::custom("song_id is not a valid uuid"))
+                    } else {
+                        Err(E::custom("cmd missing argument"))
+                    }
+                }
+                ("list", _) => Ok(Some(BotSubCommand::List)),
+
+                ("song", x) => {
+                    if let Some(cmd_val) = x {
+                        Ok(Some(BotSubCommand::Song(cmd_val.to_string())))
+                    } else {
+                        Err(E::custom("cmd missing argument"))
+                    }
+                }
+                ("info", _) => Ok(Some(BotSubCommand::Info)),
+                (&_, _) => Err(E::custom("unable to match input with cmd")),
+            },
             None => Err(E::custom("it's all over")),
         }
     }

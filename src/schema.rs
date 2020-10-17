@@ -30,9 +30,5 @@ pub mod sotw {
     joinable!(song -> competition (competition_id));
     joinable!(song_vote -> song (song_id));
 
-    allow_tables_to_appear_in_same_query!(
-        competition,
-        song,
-        song_vote,
-    );
+    allow_tables_to_appear_in_same_query!(competition, song, song_vote,);
 }

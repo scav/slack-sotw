@@ -89,7 +89,7 @@ pub fn list_songs_active_competition(connection: &PgConnection) -> Result<Vec<So
 
     let active_competition = find_active_competition(connection)?;
 
-    return match active_competition {
+    match active_competition {
         Some(active_competition) => {
             let songs = song
                 .filter(competition_id.eq(active_competition.id))
@@ -100,7 +100,7 @@ pub fn list_songs_active_competition(connection: &PgConnection) -> Result<Vec<So
             data_error: DataError::NoActiveCompetition,
             message: "Unable to find active competition when trying to list songs".to_string(),
         }),
-    };
+    }
 }
 
 pub fn save_song(
@@ -113,7 +113,7 @@ pub fn save_song(
 
     let result = find_active_competition(connection)?;
 
-    return match result {
+    match result {
         None => Err(BotError {
             data_error: DataError::NotImplementedError,
             message: "".to_string(),
@@ -141,7 +141,7 @@ pub fn save_song(
 
             Ok(saved_song)
         }
-    };
+    }
 }
 
 pub fn save_song_vote(

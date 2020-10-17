@@ -41,7 +41,7 @@ pub async fn handler(
             BotSubCommand::Stop => handle_stop(&command, db_pool, http_client).await,
             BotSubCommand::Vote(song_id) => {
                 handle_vote(
-                    song_id.clone(),
+                    *song_id,
                     command.user_id.clone(),
                     command.response_url.clone(),
                     db_pool,

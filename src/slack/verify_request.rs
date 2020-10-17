@@ -1,4 +1,3 @@
-use crate::SlackSecret;
 use actix_http::error::ErrorBadRequest;
 use actix_http::http::HeaderMap;
 use actix_web::Error;
@@ -71,7 +70,7 @@ pub fn validate_request_headers(headers: &HeaderMap) -> Result<SlackValidationHe
 }
 
 pub fn validate_slack_signature(
-    key_value: &SlackSecret,
+    key_value: &str,
     slack_signature: String,
     body: String,
     timestamp: i64,
@@ -101,10 +100,7 @@ pub fn validate_slack_signature(
 mod tests {
     use crate::slack::verify_request::{validate_request_headers, validate_slack_signature};
     use crate::SlackSecret;
-    use actix_http::error::ErrorBadRequest;
     use actix_http::http::{HeaderMap, HeaderName, HeaderValue};
-    use actix_http::Error;
-    use ring::hmac;
     use std::str::FromStr;
 
     #[test]

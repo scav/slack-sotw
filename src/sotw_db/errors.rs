@@ -1,4 +1,3 @@
-use std;
 use std::fmt::{self};
 
 use actix_web::http::{header, StatusCode};
