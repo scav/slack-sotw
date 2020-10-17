@@ -45,3 +45,10 @@ $ cargo install diesel_cli --no-default-features --features postgres
 ```
 
 Use [ngrok](https://ngrok.com/) to give outside access to bot from localhost.
+
+## Building
+Building a release can be done inside of a docker container.
+
+```bash
+docker build -t sotw-dev .
+```
