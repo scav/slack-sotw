@@ -1,17 +1,17 @@
-use crate::schema::sotw::competition::dsl::*;
-use crate::schema::sotw::song::columns::competition_id;
 use crate::sotw_db::errors::*;
 use crate::sotw_db::model::{
     Competition, CompetitionInsert, Song, SongInsert, SongVote, SongVoteInsert,
 };
 use diesel::prelude::*;
-use diesel::{insert_into, update, PgConnection, QueryDsl, RunQueryDsl};
+use diesel::{delete, insert_into, update, PgConnection, QueryDsl, RunQueryDsl};
 use uuid::Uuid;
 
 pub fn save_competition(
     mut competition_insert: CompetitionInsert,
     connection: &PgConnection,
 ) -> Result<Competition, BotError> {
+    use crate::schema::sotw::competition::dsl::*;
+
     let result: Option<Competition> = competition
         .filter(is_active.eq(true))
         .first::<Competition>(connection)
@@ -70,17 +70,23 @@ pub fn close_competition(
     })
 }
 
-pub fn find_active_competition(connection: &PgConnection) -> Result<Option<Competition>, BotError> {
+fn find_active_competition(connection: &PgConnection) -> Result<Option<Competition>, BotError> {
+    use crate::schema::sotw::competition::dsl::*;
+
     let result = competition
         .filter(is_active.eq(true))
         .first::<Competition>(connection)
         .optional()?;
 
+    //Todo: add error message instead of passing the error along
+
     Ok(result)
 }
 
 pub fn list_songs_active_competition(connection: &PgConnection) -> Result<Vec<Song>, BotError> {
+    use crate::schema::sotw::song::columns::competition_id;
     use crate::schema::sotw::song::dsl::song;
+
     let active_competition = find_active_competition(connection)?;
 
     return match active_competition {
@@ -102,26 +108,40 @@ pub fn save_song(
     new_song_user_id: String,
     connection: &PgConnection,
 ) -> Result<Song, BotError> {
+    use crate::schema::sotw::song::columns::*;
     use crate::schema::sotw::song::dsl::song;
 
-    if let Some(active_competition) = find_active_competition(connection)? {
-        let new_song_insert = SongInsert {
-            user_id: new_song_user_id,
-            song_uri: new_song_uri,
-            competition_id: active_competition.id,
-        };
+    let result = find_active_competition(connection)?;
 
-        let saved_song = insert_into(song)
-            .values(&new_song_insert)
-            .get_result::<Song>(connection)?;
+    return match result {
+        None => Err(BotError {
+            data_error: DataError::NotImplementedError,
+            message: "".to_string(),
+        }),
+        Some(active_competition) => {
+            let new_song_insert = SongInsert {
+                user_id: new_song_user_id.clone(),
+                song_uri: new_song_uri,
+                competition_id: active_competition.id,
+            };
 
-        return Ok(saved_song);
-    }
+            delete(song)
+                .filter(competition_id.eq(active_competition.id))
+                .filter(user_id.eq(&new_song_user_id))
+                .execute(connection)?;
 
-    Err(BotError {
-        data_error: DataError::NotImplementedError,
-        message: "".to_string(),
-    })
+            let saved_song = insert_into(song)
+                .values(&new_song_insert)
+                .get_result::<Song>(connection)?;
+
+            info!(
+                "Saved song for user_id={}, song={:#?}",
+                new_song_user_id, saved_song
+            );
+
+            Ok(saved_song)
+        }
+    };
 }
 
 pub fn save_song_vote(
@@ -323,6 +343,45 @@ mod tests {
     }
 
     #[test]
+    fn test_save_song_exists() {
+        let connection = &test_db_connection();
+
+        connection.test_transaction::<_, BotError, _>(|| {
+            save_competition(
+                create_competition_insert(random_user_id(), false),
+                connection,
+            )?;
+
+            let inserted_song_first =
+                save_song("song_1_uri".to_string(), "user".to_string(), connection)?;
+            let inserted_song_second =
+                save_song("song_2_uri".to_string(), "user".to_string(), connection)?;
+            let inserted_song_other_user = save_song(
+                "song_other_uri".to_string(),
+                "user_other".to_string(),
+                connection,
+            )?;
+
+            let songs = list_songs_active_competition(connection)?;
+
+            assert!(
+                songs.contains(&inserted_song_other_user),
+                "inserting a new song for one user should not impact other users"
+            );
+            assert!(
+                songs.contains(&inserted_song_second),
+                "second inserted song should be present"
+            );
+            assert!(
+                !songs.contains(&inserted_song_first),
+                "first inserted song should be removed by second inserted song"
+            );
+
+            Ok(())
+        });
+    }
+
+    #[test]
     fn test_list_songs_active_competition() {
         let connection = &test_db_connection();
 
@@ -335,7 +394,7 @@ mod tests {
             for _ in 1..=10 {
                 save_song(
                     "http://example.org/song123".to_string(),
-                    "example|123".to_string(),
+                    random_user_id(),
                     connection,
                 )?;
             }
@@ -359,7 +418,7 @@ mod tests {
             )?;
             let inserted_song = save_song(
                 "http://example.org/song123".to_string(),
-                "example|123".to_string(),
+                random_user_id(),
                 connection,
             )?;
             let voted_song =
