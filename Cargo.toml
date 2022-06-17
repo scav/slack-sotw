@@ -22,7 +22,7 @@ hex = "0.4.2"
 
 # Database
 r2d2 = "0.8"
-diesel = { version = "^1.4.5", features = ["postgres", "r2d2", "uuidv07", "chrono"] }
+diesel = { version = "^1.4.6", features = ["postgres", "r2d2", "uuidv07", "chrono"] }
 uuid = { version = "^0.8.1", features = ["serde", "v4"] }
 chrono = { version = "0.4.11", features = ["serde"] }
 
